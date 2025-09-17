@@ -47,7 +47,9 @@ async def create_completion_stream(
                 headers=headers,
                 timeout=timeout,
             ) as response:
-                async for chunk in process_response_stream(response, chat_request.chat_id):
+                # Use external model name (chat_model_id is provider-specific; better to expose the incoming model name)
+                # Here we pass chat_request.chat_model_id as a reasonable approximation if external name isn't available upstream
+                async for chunk in process_response_stream(response, chat_request.chat_model_id):
                     yield chunk
 
     except Exception as e:

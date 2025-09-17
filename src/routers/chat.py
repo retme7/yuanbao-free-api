@@ -38,7 +38,99 @@ async def chat_completions(
 
         generator = create_completion_stream(chat_request, headers, request.should_remove_conversation)
         logging.info(f"Streaming chat completion for chat_id: {request.chat_id}")
-        return EventSourceResponse(generator, media_type="text/event-stream")
+
+        if request.stream:
+            return EventSourceResponse(generator, media_type="text/event-stream")
+
+        # Non-streaming: aggregate chunks into OpenAI-like ChatCompletion JSON
+        import json
+        import time
+        import uuid
+
+        full_text = ""
+        finish_reason = "stop"
+        usage = None
+
+        async for chunk in generator:
+            print(chunk)
+            if chunk == "[DONE]":
+                break
+            try:
+                data = json.loads(chunk)
+            except json.JSONDecodeError:
+                continue
+            choices = data.get("choices", [])
+            if not choices:
+                continue
+            choice0 = choices[0]
+            delta = choice0.get("delta", {})
+            content_value = delta.get("content", "") if isinstance(delta, dict) else ""
+
+            # If content looks like JSON, attempt to parse meta/text structures
+            if isinstance(content_value, str) and content_value.startswith("{"):
+                try:
+                    inner = json.loads(content_value)
+                except json.JSONDecodeError:
+                    inner = None
+                if isinstance(inner, dict):
+                    content_type = inner.get("type")
+                    if content_type == "meta":
+                        print(inner)
+                        token_usage = inner.get("tokenUsageInfo") or {}
+                        if token_usage:
+                            usage = {
+                                "prompt_tokens": token_usage.get("promptTokens"),
+                                "completion_tokens": token_usage.get("completionTokens"),
+                                "total_tokens": token_usage.get("totalTokens"),
+                                "prompt_tokens_details": None,
+                                "completion_tokens_details": None,
+                            }
+                        # do not append meta to message content
+                    elif content_type == "text":
+                        msg_text = inner.get("msg") or ""
+                        full_text += msg_text
+                    else:
+                        # unknown typed content, ignore
+                        pass
+                else:
+                    # content was a JSON-looking string but couldn't parse; append raw
+                    full_text += content_value
+            else:
+                # Plain text content (preferred path when upstream extractor already flattened)
+                if isinstance(content_value, str):
+                    full_text += content_value
+
+            if choice0.get("finish_reason"):
+                finish_reason = choice0["finish_reason"]
+
+        if usage == None:
+            usage = {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            }
+        response_body = {
+            "id": str(uuid.uuid4()),
+            "object": "chat.completion",
+            "created": int(time.time()),
+            # Expose the external model name requested by client
+            "model": request.model,
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": full_text,
+                    },
+                    "finish_reason": finish_reason,
+                    "logprobs": None,
+                }
+            ],
+            "usage": usage,
+            "system_fingerprint": None,
+            "service_tier": None,
+        }
+        return response_body
     except Exception as e:
         logging.error(f"Error in chat_completions: {e}")
         raise HTTPException(status_code=500, detail=str(e))

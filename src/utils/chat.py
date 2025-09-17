@@ -26,17 +26,16 @@ def parse_messages(messages: List[Message]) -> str:
 
 
 async def process_response_stream(
-    response: httpx.Response, model_id: str
+    response: httpx.Response, model_name_or_id: str
 ) -> AsyncGenerator[str, None]:
     def _create_chunk(content: str, finish_reason: Optional[str] = None) -> str:
         choice_delta = ChoiceDelta(content=content)
         choice = Choice(delta=choice_delta, finish_reason=finish_reason)
         chunk = ChatCompletionChunk(
-            created=int(time.time()), model=model_id, choices=[choice]
+            created=int(time.time()), model=model_name_or_id, choices=[choice]
         )
         return chunk.model_dump_json(exclude_unset=True)
 
-    status = ""
     start_word = "data: "
     finish_reason = "stop"
     async for line in response.aiter_lines():
@@ -54,4 +53,16 @@ async def process_response_stream(
         chunk_data: Dict = json.loads(data)
         if chunk_data.get("stopReason"):
             finish_reason = chunk_data["stopReason"]
-        yield _create_chunk(json.dumps(chunk_data, ensure_ascii=False))
+        # Extract plain text safely
+        content = ""
+        # Some providers wrap content like {"type": "text", "msg": "..."}
+        if isinstance(chunk_data.get("content"), dict):
+            msg = chunk_data.get("content", {}).get("msg")
+            if isinstance(msg, str):
+                content = msg
+        elif isinstance(chunk_data.get("content"), str):
+            content = chunk_data.get("content", "")
+        # Fallback: if provider uses different field names
+        if not content and "msg" in chunk_data:
+            content = chunk_data.get("msg") or ""
+        yield _create_chunk(content)

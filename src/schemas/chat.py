@@ -20,6 +20,7 @@ class ChatCompletionRequest(BaseModel):
     hy_user: str
     should_remove_conversation: bool = False
     multimedia: List[Media] = []
+    stream: bool = True
 
     @field_validator("messages")
     def check_messages_not_empty(cls, value):
@@ -38,7 +39,6 @@ class YuanBaoChatCompletionRequest(BaseModel):
     agent_id: str
     chat_id: str
     prompt: str
-    agent_id: str
     chat_model_id: str
     multimedia: List[Media] = []
     support_functions: Optional[List[str]]
