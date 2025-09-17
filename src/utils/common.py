@@ -1,16 +1,20 @@
 from typing import Dict
-import apikey
+try:
+    # 避免在cursor中开发时把敏感信息上传了...
+    from apikey_real import *
+except:
+    from apikey import *
 
 def generate_headers(request: dict, token: str) -> Dict[str, str]:
     print(request)
-    if request['hy_source'] == "":
-        request['hy_source'] = apikey.HY_SOURCE
-    if request['hy_user'] == "":
-        request['hy_user'] = apikey.HY_USER
-    if request['agent_id'] == "":
-        request['agent_id'] = apikey.AGENT_ID
-    if request['hy_token'] == "":
-        request['hy_token'] = apikey.HY_TOKEN
+    # check if request has source
+    if 'hy_source' not in request:
+        request['hy_source'] = HY_SOURCE
+    if 'hy_user' not in request:
+        request['hy_user'] = HY_USER
+    if 'agent_id' not in request:
+        request['agent_id'] = AGENT_ID
+
     return {
         "Cookie": f"hy_source={request['hy_source']}; hy_user={request['hy_user']}; hy_token={token}",
         "Origin": "https://yuanbao.tencent.com",

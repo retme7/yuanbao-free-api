@@ -20,7 +20,7 @@ class ChatCompletionRequest(BaseModel):
     hy_user: str
     should_remove_conversation: bool = True
     multimedia: List[Media] = []
-    stream: bool = True
+    stream: bool = False
 
     @field_validator("messages")
     def check_messages_not_empty(cls, value):
