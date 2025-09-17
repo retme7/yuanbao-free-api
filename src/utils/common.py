@@ -1,10 +1,5 @@
 from typing import Dict
-try:
-    # 避免在cursor中开发时把敏感信息上传了...
-    from apikey_real import *
-except:
-    from apikey import *
-
+from apikey import *
 def generate_headers(request: dict, token: str) -> Dict[str, str]:
     print(request)
     # check if request has source
