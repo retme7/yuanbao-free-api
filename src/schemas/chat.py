@@ -18,7 +18,7 @@ class ChatCompletionRequest(BaseModel):
     chat_id: Optional[str] = None
     hy_source: str = "web"
     hy_user: str
-    should_remove_conversation: bool = False
+    should_remove_conversation: bool = True
     multimedia: List[Media] = []
     stream: bool = True
 
