@@ -5,6 +5,7 @@ WORKDIR /app
 COPY requirements.txt .
 COPY app.py .
 COPY src/ ./src/
+COPY apikey.py .
 
 RUN pip install -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple --no-cache-dir -r requirements.txt
 
